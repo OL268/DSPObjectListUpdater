@@ -1,0 +1,5 @@
+# Exclude Logs, Results, and Snapshots from version control
+
+Logs/
+Results/
+Snapshots/
