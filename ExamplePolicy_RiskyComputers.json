@@ -1,0 +1,20 @@
+﻿{
+  "TaskName": "DSPUpdater_RiskyComputers",
+  "ListName": "RiskyComputers",
+  "Classes": ["Computers"],
+  "Filters": [
+    { "Attribute": "objectClass",     "Operator": "-eq",       "Value": "computer" },
+    { "Attribute": "operatingSystem", "Operator": "-like",     "Value": "*Windows 7*" },
+    { "Attribute": "name",            "Operator": "-startswith","Value": "temp-" },
+    { "Attribute": "name",            "Operator": "-endswith", "Value": "-test" },
+    { "Attribute": "description",     "Operator": "-ne",       "Value": "approved-exception" }
+  ],
+  "Logic": "AND",
+  "Scope": {
+    "Domains": [ "d01.lab" ],
+    "Exclude": [
+      { "Domain": "d01.lab", "BaseDN": "OU=Archive,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Daily", "TimeUTC": "02:10" }
+}

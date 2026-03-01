@@ -1,0 +1,24 @@
+﻿{
+  "TaskName": "DSPUpdater_AllOperatorsDemo",
+  "ListName": "AllOperators_Demo",
+  "Classes": ["Users"],
+  "Filters": [
+    { "Attribute": "objectClass", "Operator": "-eq",        "Value": "user" },
+    { "Attribute": "company",     "Operator": "-ne",        "Value": "ContractorsLtd" },
+    { "Attribute": "displayName", "Operator": "-like",      "Value": "*admin*" },
+    { "Attribute": "title",       "Operator": "-notlike",   "Value": "*intern*" },
+    { "Attribute": "name",        "Operator": "-startswith","Value": "svc_" },
+    { "Attribute": "name",        "Operator": "-endswith",  "Value": "_bot" },
+    { "Attribute": "mail",        "Operator": "-present",   "Value": "" },
+    { "Attribute": "department",  "Operator": "-in",        "Value": [ "IT", "Security", "Ops" ] },
+    { "Attribute": "physicalDeliveryOfficeName", "Operator": "-notin", "Value": [ "TelAviv-1", "NYC-2" ] }
+  ],
+  "Logic": "OR",
+  "Scope": {
+    "Domains": [ "d01.lab" ],
+    "Exclude": [
+      { "Domain": "d01.lab", "BaseDN": "OU=Disabled Users,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Daily", "TimeUTC": "01:45" }
+}

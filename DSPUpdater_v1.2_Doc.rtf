@@ -1,0 +1,296 @@
+{\rtf1\ansi\deff0\nouicompat{\fonttbl{\f0\fnil Calibri;}{\f1\fnil\fcharset1 Segoe UI Symbol;}{\f2\fnil\fcharset0 Calibri;}{\f3\fnil\fcharset1 Cambria Math;}}
+{\*\generator Riched20 10.0.17763}{\*\mmathPr\mmathFont3\mwrapIndent1440 }\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs22\lang9 # DSP ObjectList AutoUpdater \emdash  User Guide (v1.2)\par
+\par
+Author: DSP PM Team\par
+Version: 1.2\par
+\par
+## PURPOSE\par
+\par
+Automate building and maintaining DSP ObjectLists from Active Directory using a JSON policy.\par
+v1.2 adds **Scope.Exclude** and expands operator support. No runtime behavior changes after the AD query.\par
+\par
+1. WHAT YOU GET IN THE ZIP\par
+\par
+---\par
+\par
+DSPObjectListAutoUpdater\par
+\f1\u9474?\f2   DSPObjectListAutoUpdater.ps1        (Main runner)\par
+\f1\u9474?\f2   README\\_v1.2\\_UserGuide.rtf           (This document)\par
+\f1\u9474?\f2\par
+\f1\u9500?\u9472?\f2 Config\par
+\f1\u9474?\f2   ExamplePolicy\\_\\*.json                (Ready-to-use sample policies)\par
+\f1\u9474?\f2\par
+\f1\u9500?\u9472?\f2 Modules\par
+\f1\u9474?\f2   Logging.ps1\par
+\f1\u9474?\f2   Utilities.ps1                       (validators, helpers; v1.2 operators)\par
+\f1\u9474?\f2   Policy.ps1                          (load/validate/summary)\par
+\f1\u9474?\f2   QueryAD.ps1                         (queries AD; supports Scope.Exclude)\par
+\f1\u9474?\f2   DSPUpdate.ps1                       (list sync, 10K cap, CSV pipeline)\par
+\f1\u9474?\f2   Snapshot.ps1                        (result + snapshot writers)\par
+\f1\u9474?\f2   TaskScheduler.ps1                   (idempotent scheduled task)\par
+\f1\u9474?\f2\par
+\f1\u9500?\u9472?\f2 Logs\\                                (Created at runtime)\par
+\f1\u9500?\u9472?\f2 Snapshots\\                           (Created at runtime)\par
+\f1\u9492?\u9472?\f2 Results\\                             (Created at runtime)\par
+\par
+2. REQUIREMENTS\par
+\par
+---\par
+\par
+\f0\bullet  Windows PowerShell 5.1\par
+\bullet  RSAT ActiveDirectory (Get-ADObject, Get-ADDomain, etc.)\par
+\bullet  Semperis.Posh.DSP module available on the runner host\par
+\bullet  Network access to your DSP server (defaults to \ldblquote localhost\rdblquote ) and Domain Controllers\par
+\bullet  Permissions:\par
+\endash  Read access in AD to query targeted containers/OUs\par
+\endash  Rights in DSP to create/update ObjectLists and modify membership\par
+\endash  Local admin if you want the tool to create/update a Scheduled Task\par
+\par
+3. FLOW (WHAT THE RUNNER DOES)\par
+\par
+---\par
+\par
+1. Load & validate the policy (v1.2 schema).\par
+2. Build an LDAP filter from Filters + Logic.\par
+3. Query AD across the defined Scope; apply **Scope.Exclude**.\par
+4. De-duplicate objects by GUID.\par
+5. Ensure the DSP ObjectList exists (create if needed).\par
+6. Sync membership (remove first, then add) with a **10,000** member cap.\par
+7. Write artifacts:\par
+   \bullet  Logs\\Run\\_<RUNID>*<UTC>.log\par
+   \bullet  Results\\FullADResults*<Classes>*<RUNID>*<UTC>.json\par
+   \bullet  Snapshots\\Snapshot\\_<ListName>*<Classes>*<RUNID>\\_<UTC>.json\par
+8. If Schedule present, create/update a Windows Scheduled Task (SYSTEM, silent).\par
+\par
+4) QUICK START\par
+\par
+---\par
+\par
+4.1 Place a policy\par
+Copy one of the `Config\\ExamplePolicy_*.json` files and edit it for your domains/OUs.\par
+\par
+4.2 Manual run (one-shot)\par
+Open an elevated PowerShell 5.1 in the tool folder:\par
+.\\DSPObjectListAutoUpdater.ps1 -Policy ".\\Config\\ExamplePolicy\\_ServiceAccounts.json"\par
+\par
+4.3 Scheduled run (automatic)\par
+If the policy includes \ldblquote Schedule\rdblquote  and \ldblquote TaskName\rdblquote , the script creates/updates a scheduled task:\par
+.\\DSPObjectListAutoUpdater.ps1 -Policy ".\\Config\\YourPolicy.json"\par
+\par
+5. POLICY (v1.2) \emdash  SCHEMA\par
+\par
+---\par
+\par
+Top-level JSON:\par
+\{\par
+"TaskName": "DSPUpdater\\_ServiceAccounts",      // Optional; required for scheduling\par
+"ListName": "ServiceAccounts",                 // Required\par
+"Classes": \\["Users"],                          // One or more\par
+"Filters": \\[\par
+\{ "Attribute": "<attr>", "Operator": "<op>", "Value": \\<string|array|empty for -present> \}\par
+],\par
+"Logic": "AND",                                // "AND" | "OR" (default "AND")\par
+"Scope": \{\par
+// Choose exactly ONE:\par
+"Domains": \\["d01.lab", "d02.d01.lab"],\par
+// or:\par
+// "SearchBases": \\[\par
+//   \{ "Domain": "d01.lab",     "BaseDN": "OU=Service Accounts,DC=d01,DC=lab" \},\par
+//   \{ "Domain": "d02.d01.lab", "BaseDN": "OU=Servers,DC=d02,DC=d01,DC=lab" \}\par
+// ],\par
+// Optional in v1.2:\par
+"Exclude": \\[\par
+\{ "Domain": "d01.lab",     "BaseDN": "OU=Disabled Users,DC=d01,DC=lab" \}\par
+]\par
+\},\par
+"Schedule": \{\par
+"Frequency": "Daily",                         // Free-form; use Daily/Weekly/Monthly in practice\par
+"TimeUTC": "03:00"                            // 24h UTC HH\\:mm\par
+\}\par
+\}\par
+\par
+NOTES:\par
+\bullet  `Scope` must specify **either** `Domains` **or** `SearchBases` (not both).\par
+\bullet  `Scope.Exclude` is optional, supports multiple entries, each with `Domain` and `BaseDN`.\par
+\bullet  `Schedule` is optional; if present, both `Frequency` and `TimeUTC` must exist.\par
+\bullet  Policies must conform to v1.2 validation (tool fails fast with a clear error).\par
+\par
+6. FILTER OPERATORS (SUPPORTED IN v1.2)\par
+\par
+---\par
+\par
+Operators implemented by the current builder:\par
+\par
+\bullet  -eq         Equality                            \f3\u8594?\f2  (attr=value)\par
+\f0\bullet  -ne         Not equal                           \f3\u8594?\f2  (!(attr=value))\par
+\f0\bullet  -like       Wildcard match (\lquote *\rquote  only)           \f3\u8594?\f2  (attr=pattern)\par
+\f0\bullet  -notlike    Negated wildcard                    \f3\u8594?\f2  (!(attr=pattern))\par
+\f0\bullet  -startswith Prefix                              \f3\u8594?\f2  (attr=value*)\par
+\f0\bullet  -endswith   Suffix                              \f3\u8594?\f2  (attr=*value)\par
+\f0\bullet  -present    Attribute exists (value ignored)    \f3\u8594?\f2  (attr=*)\par
+\f0\bullet  -in         Any of list (OR over equals)        \f3\u8594?\f2  (| (attr=v1)(attr=v2) \'85 )\par
+\f0\bullet  -notin      Not in list                         \f3\u8594?\f2  (!(| (attr=v1)(attr=v2) \'85 ))\par
+\par
+Combination logic:\par
+\f0\bullet  "AND" \f3\u8594?\f2  (& \'85 )\par
+\f0\bullet  "OR"  \f3\u8594?\f2  (| \'85 )\par
+\par
+Value rules:\par
+\f0\bullet  `-present` may have an empty string Value (`""`), or omit \emdash  both are accepted.\par
+\bullet  `-in`/`-notin` accept an array or a single string (treated as 1-item list).\par
+\bullet  For \ldblquote missing/empty\rdblquote  attributes, use `\{"Operator":"-notlike","Value":"*"\}`.\par
+\par
+Common attribute examples (non-exhaustive):\par
+\bullet  Users: samAccountName, userPrincipalName, name, mail, department, title, description\par
+\bullet  Groups: name, description, memberOf\par
+\bullet  Computers: name, operatingSystem, description\par
+\bullet  OUs: ou, name, description\par
+\par
+7. COMMON RECIPES (SAMPLE POLICIES INCLUDED)\par
+\par
+---\par
+\par
+All samples are in `Config\\` and ready to run/edit.\par
+\par
+\bullet  ExamplePolicy\\_ServiceAccounts.json\par
+Users with `sAMAccountName` like `svc_*`, scoped to Service Accounts OUs, excluding \ldblquote Disabled Users\rdblquote  OUs.\par
+\par
+\bullet  ExamplePolicy\\_PrivilegedAccounts.json\par
+Users whose `memberOf` is one of Domain/Enterprise Admins across domains (uses `-in` over full DNs).\par
+\par
+\bullet  ExamplePolicy\\_RiskyComputers.json\par
+Legacy OS + temp/test naming (`-like`, `-startswith`, `-endswith`, `-ne`), excludes Archive OUs.\par
+\par
+\bullet  ExamplePolicy\\_RiskyGroups.json\par
+Groups containing \ldblquote admin\rdblquote  with **no description** (`-notlike "*"`) as a hygiene check.\par
+\par
+\bullet  ExamplePolicy\\_RiskyUsers.json\par
+Guest/temp users: mail present, no phone, department not in HR/Finance/Legal (`-present`, `-notlike "*"`, `-notin`).\par
+\par
+\bullet  ExamplePolicy\\_OUHygiene.json\par
+OUs without description; excludes Archive and Disabled Users.\par
+\par
+\bullet  ExamplePolicy\\_AllOperatorsDemo.json\par
+Synthetic policy exercising **every operator** to validate end-to-end parsing.\par
+\par
+8. USAGE DETAILS\par
+\par
+---\par
+\par
+Manual one-shot:\par
+.\\DSPObjectListAutoUpdater.ps1 -Policy "<full path to your policy>.json"\par
+\par
+Scheduling:\par
+\bullet  If the policy contains `TaskName` and `Schedule`, the tool will create/update the Scheduled Task.\par
+\bullet  Task runs as SYSTEM, hidden, with the tool directory as working folder.\par
+\par
+DSP sync behavior:\par
+\bullet  Current membership is compared to the AD snapshot by GUID.\par
+\bullet  Plan: remove first, then add.\par
+\bullet  Hard cap: **10,000** items per list. Excess adds are skipped and logged (first 50 listed).\par
+\par
+Artifacts:\par
+\bullet  Logs\\Run\\_<RUNID>*<UTC>.log\par
+\bullet  Results\\FullADResults**.json\par
+\bullet  Snapshots\\Snapshot\\_*.json\par
+\par
+9. TROUBLESHOOTING\par
+\par
+---\par
+\par
+\bullet  \ldblquote Policy path not provided\'85\rdblquote\par
+\endash  Pass `-Policy "<path>"` or place a `*.json` in the tool folder.\par
+\par
+\bullet  \ldblquote Invalid JSON / Each filter must have Attribute, Operator, and Value\rdblquote\par
+\endash  Ensure valid JSON.\par
+\endash  For `-present`, empty Value is allowed in v1.2.\par
+\endash  `-in`/`-notin` must have at least one value.\par
+\par
+\bullet  \ldblquote AD module not found\rdblquote\par
+\endash  Install RSAT ActiveDirectory, reopen PowerShell 5.1 elevated.\par
+\par
+\bullet  \ldblquote No results\rdblquote\par
+\endash  Confirm filters and Scope.\par
+\endash  Check if `Scope.Exclude` removes your expected OU.\par
+\endash  Test LDAP directly with Get-ADObject.\par
+\par
+\bullet  \ldblquote Concurrent update blocked\rdblquote  from DSP\par
+\endash  Handled automatically by backoff and adaptive chunking; re-run if repeated.\par
+\par
+\bullet  Scheduled Task exists but doesn\rquote t run\par
+\endash  Check History and Last Run Result.\par
+\endash  Run the same command manually as admin for comparison.\par
+\par
+10. VERSION NOTES (WHAT\rquote S NEW IN v1.2)\par
+\par
+---\par
+\par
+\bullet  Added **Scope.Exclude**: array of `\{ "Domain": "<fqdn>", "BaseDN": "<dn>" \}` blocks that are excluded from the effective scope.\par
+\bullet  Expanded **filter operators**: now supports `-startswith`, `-endswith`, `-present`, `-in`, `-notin` in addition to `-eq`, `-ne`, `-like`, `-notlike`.\par
+\bullet  Validator updated to allow `-present` with empty Value and to enforce sane list rules for `-in`/`-notin`.\par
+\bullet  No changes to the post-query behavior: snapshot, DSP sync, and scheduling remain as in 1.1.\par
+\par
+## APPENDIX: QUICK POLICY TEMPLATES\par
+\par
+Service Accounts (prefix, exclude Disabled OU):\par
+\{\par
+"TaskName": "DSPUpdater\\_ServiceAccounts",\par
+"ListName": "ServiceAccounts",\par
+"Classes": \\["Users"],\par
+"Filters": \\[\par
+\{ "Attribute": "objectClass",    "Operator": "-eq",      "Value": "user" \},\par
+\{ "Attribute": "sAMAccountName", "Operator": "-like",    "Value": "svc\\_\\*" \},\par
+\{ "Attribute": "description",    "Operator": "-notlike", "Value": "*deprecated*" \}\par
+],\par
+"Logic": "AND",\par
+"Scope": \{\par
+"SearchBases": \\[\par
+\{ "Domain": "d01.lab",       "BaseDN": "OU=Service Accounts,DC=d01,DC=lab" \}\par
+],\par
+"Exclude": \\[\par
+\{ "Domain": "d01.lab",       "BaseDN": "OU=Disabled Users,DC=d01,DC=lab" \}\par
+]\par
+\},\par
+"Schedule": \{ "Frequency": "Daily", "TimeUTC": "03:00" \}\par
+\}\par
+\par
+Privileged Users (memberOf in set):\par
+\{\par
+"TaskName": "DSPUpdater\\_PrivilegedUsers",\par
+"ListName": "PrivilegedUsers",\par
+"Classes": \\["Users"],\par
+"Filters": \\[\par
+\{ "Attribute": "objectClass", "Operator": "-eq", "Value": "user" \},\par
+\{ "Attribute": "memberOf",   "Operator": "-in", "Value": \\[\par
+"CN=Domain Admins,CN=Users,DC=d01,DC=lab",\par
+"CN=Enterprise Admins,CN=Users,DC=d01,DC=lab"\par
+] \}\par
+],\par
+"Logic": "AND",\par
+"Scope": \{ "Domains": \\[ "d01.lab" ] \},\par
+"Schedule": \{ "Frequency": "Daily", "TimeUTC": "04:15" \}\par
+\}\par
+\par
+OU Hygiene (no description):\par
+\{\par
+"TaskName": "DSPUpdater\\_OUHygiene",\par
+"ListName": "OrganizationalUnits\\_NoDescription",\par
+"Classes": \\["OrganizationalUnits"],\par
+"Filters": \\[\par
+\{ "Attribute": "objectClass", "Operator": "-eq",      "Value": "organizationalUnit" \},\par
+\{ "Attribute": "description", "Operator": "-notlike", "Value": "\\*" \}\par
+],\par
+"Logic": "AND",\par
+"Scope": \{\par
+"Domains": \\[ "d01.lab" ],\par
+"Exclude": \\[\par
+\{ "Domain": "d01.lab", "BaseDN": "OU=Archive,DC=d01,DC=lab" \}\par
+]\par
+\},\par
+"Schedule": \{ "Frequency": "Weekly", "TimeUTC": "01:30" \}\par
+\}\par
+\par
+\emdash  End of v1.2 User Guide \emdash\lang9\par
+}
+ 

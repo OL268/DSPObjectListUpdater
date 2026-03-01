@@ -1,0 +1,21 @@
+{
+  "TaskName": "DSPUpdater_PrivilegedUsers",
+  "ListName": "PrivilegedUsers",
+  "Classes": ["Users"],
+  "Filters": [
+    { "Attribute": "objectClass", "Operator": "-eq",  "Value": "user" },
+    { "Attribute": "memberOf",    "Operator": "-in",  "Value": [
+      "CN=Domain Admins,CN=Users,DC=d01,DC=lab",
+      "CN=Enterprise Admins,CN=Users,DC=d01,DC=lab",
+      "CN=Domain Admins,CN=Users,DC=d02,DC=d01,DC=lab"
+    ] }
+  ],
+  "Logic": "AND",
+  "Scope": {
+    "Domains": [ "d01.lab", "d02.d01.lab" ],
+    "Exclude": [
+      { "Domain": "d01.lab",       "BaseDN": "OU=Service Accounts,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Daily", "TimeUTC": "06:15" }
+}

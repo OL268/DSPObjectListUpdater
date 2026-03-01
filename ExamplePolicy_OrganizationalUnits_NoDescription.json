@@ -1,0 +1,18 @@
+﻿{
+  "TaskName": "DSPUpdater_OUHygiene",
+  "ListName": "OrganizationalUnits_NoDescription",
+  "Classes": ["OrganizationalUnits"],
+  "Filters": [
+    { "Attribute": "objectClass", "Operator": "-eq",      "Value": "organizationalUnit" },
+    { "Attribute": "description", "Operator": "-notlike", "Value": "*" }
+  ],
+  "Logic": "AND",
+  "Scope": {
+    "Domains": [ "d01.lab" ],
+    "Exclude": [
+      { "Domain": "d01.lab", "BaseDN": "OU=Archive,DC=d01,DC=lab" },
+      { "Domain": "d01.lab", "BaseDN": "OU=Disabled Users,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Weekly", "TimeUTC": "03:30" }
+}

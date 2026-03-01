@@ -1,0 +1,18 @@
+﻿{
+  "TaskName": "DSPUpdater_RiskyGroups",
+  "ListName": "RiskyGroups",
+  "Classes": ["Groups"],
+  "Filters": [
+    { "Attribute": "objectClass",  "Operator": "-eq",      "Value": "group" },
+    { "Attribute": "name",         "Operator": "-like",    "Value": "*admin*" },
+    { "Attribute": "description",  "Operator": "-notlike", "Value": "*" }
+  ],
+  "Logic": "AND",
+  "Scope": {
+    "Domains": [ "d01.lab", "d02.d01.lab" ],
+    "Exclude": [
+      { "Domain": "d02.d01.lab", "BaseDN": "OU=Archive,DC=d02,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Daily", "TimeUTC": "04:00" }
+}

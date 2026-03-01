@@ -1,0 +1,23 @@
+﻿{
+  "TaskName": "DSPUpdater_RiskyUsers",
+  "ListName": "RiskyUsers",
+  "Classes": ["Users"],
+  "Filters": [
+    { "Attribute": "objectClass",     "Operator": "-eq",        "Value": "user" },
+    { "Attribute": "sAMAccountName",  "Operator": "-startswith", "Value": "guest_" },
+    { "Attribute": "name",            "Operator": "-endswith",   "Value": "_temp" },
+    { "Attribute": "mail",            "Operator": "-present",    "Value": "" },
+    { "Attribute": "telephoneNumber", "Operator": "-notlike",    "Value": "*" },
+    { "Attribute": "department",      "Operator": "-notin",      "Value": [ "HR", "Finance", "Legal" ] }
+  ],
+  "Logic": "AND",
+  "Scope": {
+    "SearchBases": [
+      { "Domain": "d01.lab", "BaseDN": "OU=Users,DC=d01,DC=lab" }
+    ],
+    "Exclude": [
+      { "Domain": "d01.lab", "BaseDN": "OU=Disabled Users,DC=d01,DC=lab" }
+    ]
+  },
+  "Schedule": { "Frequency": "Daily", "TimeUTC": "05:00" }
+}
